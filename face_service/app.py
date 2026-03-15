@@ -77,8 +77,8 @@ def register():
         create_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         cursor.execute(
-            "INSERT INTO user (username, face_feature, create_time) VALUES (%s, %s, %s)",
-            (username, feature_str, create_time)
+            "INSERT INTO user (username, face_feature, face_image, create_time) VALUES (%s, %s, %s, %s)",
+            (username, feature_str, image_base64, create_time)
         )
         conn.commit()
         cursor.close()
@@ -141,6 +141,26 @@ def get_users():
                 user['create_time'] = user['create_time'].strftime('%Y-%m-%d %H:%M:%S')
 
         return jsonify(users)
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/user/<int:user_id>', methods=['GET'])
+def get_user(user_id):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        cursor.execute("SELECT id, username, face_image, create_time FROM user WHERE id = %s", (user_id,))
+        user = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not user:
+            return jsonify({'status': 'error', 'message': 'User not found'}), 404
+
+        if user['create_time']:
+            user['create_time'] = user['create_time'].strftime('%Y-%m-%d %H:%M:%S')
+
+        return jsonify(user)
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 

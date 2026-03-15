@@ -49,6 +49,37 @@ public class FaceController : Controller
         return View();
     }
 
+    public async Task<IActionResult> Profile()
+    {
+        var userId = HttpContext.Session.GetInt32("UserId");
+
+        if (userId == null)
+        {
+            return RedirectToAction("Login");
+        }
+
+        try
+        {
+            var response = await _httpClient.GetAsync($"{PythonApiBase}/user/{userId}");
+            var responseBody = await response.Content.ReadAsStringAsync();
+            var result = JsonSerializer.Deserialize<JsonElement>(responseBody);
+
+            if (result.TryGetProperty("status", out var status) && status.GetString() == "error")
+            {
+                ViewBag.Error = result.GetProperty("message").GetString();
+                return View();
+            }
+
+            ViewBag.User = result;
+            return View();
+        }
+        catch (Exception ex)
+        {
+            ViewBag.Error = $"获取用户信息失败: {ex.Message}";
+            return View();
+        }
+    }
+
     [HttpPost]
     public async Task<IActionResult> Register(string username, IFormFile? image, string? webcamImage)
     {
