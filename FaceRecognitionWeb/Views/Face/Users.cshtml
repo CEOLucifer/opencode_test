@@ -1,0 +1,67 @@
+@{
+    ViewData["Title"] = "用户管理";
+}
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3>用户列表</h3>
+                    <div>
+                        <span class="me-3">欢迎，@ViewBag.Username</span>
+                        <a asp-action="Logout" class="btn btn-sm btn-outline-danger">退出</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <table class="table table-striped" id="userTable">
+                        <thead>
+                            <tr>
+                                <th>用户ID</th>
+                                <th>用户名</th>
+                                <th>注册时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+ <tr>
+                                <td colspan="3" class="                           text-center">加载中...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            loadUsers();
+        });
+
+        function loadUsers() {
+            $.get('@Url.Action("GetUsers", "Face")', function(data) {
+                var tbody = $('#userTable tbody');
+                tbody.empty();
+                
+                if (data.length === 0) {
+                    tbody.append('<tr><td colspan="3" class="text-center">暂无用户数据</td></tr>');
+                    return;
+                }
+                
+                data.forEach(function(user) {
+                    tbody.append(
+                        '<tr>' +
+                        '<td>' + user.id + '</td>' +
+                        '<td>' + user.username + '</td>' +
+                        '<td>' + user.create_time + '</td>' +
+                        '</tr>'
+                    );
+                });
+            }).fail(function() {
+                $('#userTable tbody').html('<tr><td colspan="3" class="text-center text-danger">加载失败，请检查Python服务是否启动</td></tr>');
+            });
+        }
+    </script>
+}

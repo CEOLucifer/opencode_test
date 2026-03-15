@@ -1,0 +1,190 @@
+@{
+    ViewData["Title"] = "用户注册";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3>用户注册</h3>
+            </div>
+            <div class="card-body">
+                @if (ViewBag.Error != null)
+                {
+                    <div class="alert alert-danger">@ViewBag.Error</div>
+                }
+                @if (ViewBag.Success != null)
+                {
+                    <div class="alert alert-success">@ViewBag.Success</div>
+                }
+
+                <form asp-action="Register" method="post" enctype="multipart/form-data" id="registerForm">
+                    <div class="mb-3">
+                        <label class="form-label">用户名</label>
+                        <input type="text" name="username" class="form-control" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">选择注册方式</label>
+                        <div class="btn-group w-100" role="group">
+                            <button type="button" class="btn btn-outline-primary" id="btnUpload" onclick="switchToUpload()">上传照片</button>
+                            <button type="button" class="btn btn-outline-primary" id="btnCamera" onclick="switchToCamera()">摄像头拍照</button>
+                        </div>
+                    </div>
+
+                    <div class="mb-3" id="uploadSection">
+                        <label class="form-label">上传照片</label>
+                        <input type="file" name="image" class="form-control" accept="image/*" />
+                        <small class="text-muted">请上传一张清晰的人脸照片</small>
+                    </div>
+
+                    <div class="mb-3" id="cameraSection" style="display: none;">
+                        <label class="form-label">摄像头拍照</label>
+                        <video id="video" width="320" height="240" autoplay playsinline></video>
+                        <canvas id="canvas" width="320" height="240" style="display: none;"></canvas>
+                        <img id="photo" width="320" height="240" class="mt-2" style="display: none; border: 2px solid #28a745;" />
+                        <input type="hidden" name="webcamImage" id="webcamImage" />
+                        <small class="text-muted">请对准脸部，点击拍照按钮</small>
+                        <div class="mt-2">
+                            <button type="button" id="captureBtn" class="btn btn-success">拍照</button>
+                            <button type="button" id="retakeBtn" class="btn btn-secondary" style="display: none;">重拍</button>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">注册</button>
+                    <a asp-action="Login" class="btn btn-link">已有账号？登录</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const uploadSection = document.getElementById('uploadSection');
+        const cameraSection = document.getElementById('cameraSection');
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const photo = document.getElementById('photo');
+        const captureBtn = document.getElementById('captureBtn');
+        const retakeBtn = document.getElementById('retakeBtn');
+        const webcamImage = document.getElementById('webcamImage');
+        const imageInput = document.querySelector('input[name="image"]');
+        const btnUpload = document.getElementById('btnUpload');
+        const btnCamera = document.getElementById('btnCamera');
+        let stream = null;
+
+        function switchToUpload() {
+            uploadSection.style.display = 'block';
+            cameraSection.style.display = 'none';
+            stopCamera();
+            imageInput.required = true;
+            btnUpload.classList.add('active');
+            btnCamera.classList.remove('active');
+        }
+
+        function switchToCamera() {
+            uploadSection.style.display = 'none';
+            cameraSection.style.display = 'block';
+            imageInput.required = false;
+            btnUpload.classList.remove('active');
+            btnCamera.classList.add('active');
+            startCamera();
+        }
+
+        function startCamera() {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(s => {
+                    stream = s;
+                    video.style.display = 'block';
+                    video.srcObject = stream;
+                })
+                .catch(err => {
+                    console.error('摄像头访问失败:', err);
+                    alert('无法访问摄像头，请确保已授予权限');
+                });
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+        }
+
+        captureBtn.addEventListener('click', function() {
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, 320, 240);
+            const dataURL = canvas.toDataURL('image/jpeg');
+            webcamImage.value = dataURL;
+            photo.src = dataURL;
+            photo.style.display = 'block';
+            video.style.display = 'none';
+            captureBtn.style.display = 'none';
+            retakeBtn.style.display = 'inline-block';
+        });
+
+        retakeBtn.addEventListener('click', function() {
+            photo.style.display = 'none';
+            video.style.display = 'block';
+            captureBtn.style.display = 'inline-block';
+            retakeBtn.style.display = 'none';
+            webcamImage.value = '';
+        });
+
+        document.getElementById('registerForm').addEventListener('submit', function(e) {
+            const selectedMethod = document.querySelector('input[name="registerMethod"]:checked').value;
+            if (selectedMethod === 'camera') {
+                if (!webcamImage.value) {
+                    e.preventDefault();
+                    alert('请先拍照');
+                    return;
+                }
+                e.preventDefault();
+                
+                const username = document.querySelector('input[name="username"]').value;
+                if (!username) {
+                    alert('请输入用户名');
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('username', username);
+                formData.append('webcamImage', webcamImage.value);
+
+                fetch('@Url.Action("Register", "Face")', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (response.redirected) {
+                        window.location.href = response.url;
+                        return;
+                    }
+                    return response.text();
+                })
+                .then(html => {
+                    if (html) {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        const errorAlert = doc.querySelector('.alert-danger');
+                        const successAlert = doc.querySelector('.alert-success');
+                        const currentCardBody = document.querySelector('.card-body');
+                        
+                        if (successAlert) {
+                            alert(successAlert.textContent.trim());
+                            window.location.href = '@Url.Action("Login", "Face")';
+                        } else if (errorAlert) {
+                            currentCardBody.querySelector('.alert-danger')?.remove();
+                            const alertDiv = document.createElement('div');
+                            alertDiv.className = 'alert alert-danger';
+                            alertDiv.textContent = errorAlert.textContent.trim();
+                            currentCardBody.insertBefore(alertDiv, currentCardBody.firstChild);
+                        }
+                    }
+                })
+                .catch(err => console.error('Error:', err));
+            }
+        });
+    </script>
+}
